@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Polka-RA Control</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        button { padding: 15px 30px; margin: 10px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; background: #4CAF50; color: white; }
+        #status { margin: 20px 0; padding: 15px; background: #e7e7e7; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Polka-RA Control</h1>
+    <div id="status">Loading...</div>
+    
+    <button onclick="forceConnect()">🦊 Force Connect MetaMask</button>
+    <button onclick="sendCommand('ACTIVATE_PUMP')">💧 Water Pump</button>
+    <button onclick="sendCommand('ACTIVATE_LAMP')">💡 Lamp</button>
+
+    <script>
+        let ethereum = null;
+        let provider = null;
+        let signer = null;
+
+        // Force detect MetaMask with multiple methods
+        function detectMetaMask() {
+            // Method 1: Standard detection
+            if (window.ethereum) {
+                ethereum = window.ethereum;
+                return true;
+            }
+            
+            // Method 2: Check for web3
+            if (window.web3 && window.web3.currentProvider) {
+                ethereum = window.web3.currentProvider;
+                return true;
+            }
+            
+            // Method 3: Wait and retry
+            setTimeout(() => {
+                if (window.ethereum) {
+                    ethereum = window.ethereum;
+                    document.getElementById('status').innerHTML = '✅ MetaMask detected (delayed)';
+                }
+            }, 2000);
+            
+            return false;
+        }
+
+        async function forceConnect() {
+            try {
+                if (!ethereum && !detectMetaMask()) {
+                    document.getElementById('status').innerHTML = '❌ MetaMask not found. Please refresh page and try again.';
+                    return;
+                }
+
+                document.getElementById('status').innerHTML = '🔄 Connecting to MetaMask...';
+                
+                // Create provider
+                if (typeof ethers === 'undefined') {
+                    // Load ethers if not available
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js';
+                    document.head.appendChild(script);
+                    await new Promise(resolve => script.onload = resolve);
+                }
+                
+                provider = new ethers.providers.Web3Provider(ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                
+                const address = await signer.getAddress();
+                const network = await provider.getNetwork();
+                
+                document.getElementById('status').innerHTML = `✅ Connected: ${address.substring(0,10)}... on Chain ${network.chainId}`;
+                
+            } catch (error) {
+                document.getElementById('status').innerHTML = '❌ Connection failed: ' + error.message;
+            }
+        }
+
+        async function sendCommand(cmd) {
+            if (!signer) {
+                document.getElementById('status').innerHTML = '❌ Connect MetaMask first';
+                return;
+            }
+
+            try {
+                const contractAddress = "0xd9145CCE52D386f254917e481eB44e9943F39138";
+                const abi = ["function setCommand(string memory newCommand) public"];
+                const contract = new ethers.Contract(contractAddress, abi, signer);
+                
+                document.getElementById('status').innerHTML = '⏳ Sending ' + cmd + '...';
+                const tx = await contract.setCommand(cmd);
+                document.getElementById('status').innerHTML = '📤 Transaction sent, waiting for confirmation...';
+                await tx.wait();
+                document.getElementById('status').innerHTML = '✅ Command sent! ESP32 will execute in ~10 seconds';
+                
+            } catch (error) {
+                document.getElementById('status').innerHTML = '❌ Transaction failed: ' + error.message;
+            }
+        }
+
+        // Auto-detect on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (detectMetaMask()) {
+                    document.getElementById('status').innerHTML = '🦊 MetaMask detected! Click "Force Connect" to start.';
+                } else {
+                    document.getElementById('status').innerHTML = '❌ MetaMask not detected. Make sure it\'s installed and enabled.';
+                }
+            }, 1000);
+        });
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+</body>
+</html>

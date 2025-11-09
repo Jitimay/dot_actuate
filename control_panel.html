@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Polka-RA Control Panel</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f0f0f0; }
+        .container { background: white; padding: 30px; border-radius: 10px; max-width: 600px; }
+        button { padding: 15px 30px; margin: 10px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
+        .activate { background: #4CAF50; color: white; }
+        .stop { background: #f44336; color: white; }
+        .photo { background: #2196F3; color: white; }
+        .status { background: #e7e7e7; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .log { background: #333; color: #0f0; padding: 15px; font-family: monospace; height: 200px; overflow-y: scroll; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Polka-Resilient-Actuator Control</h1>
+        <p>Decentralized off-grid device control via blockchain</p>
+        
+        <div class="status">
+            <strong>Contract:</strong> <span id="contractAddr">0xd9145CCE52D386f254917e481eB44e9943F39138</span><br>
+            <strong>Network:</strong> Moonbase Alpha Testnet<br>
+            <strong>Status:</strong> <span id="status">Ready</span>
+        </div>
+        
+        <h3>Commands:</h3>
+        <button class="activate" onclick="sendCommand('ACTIVATE_PUMP_30')">🚰 Activate Pump (30s)</button>
+        <button class="stop" onclick="sendCommand('STOP_ALL')">⛔ Emergency Stop</button>
+        <button class="photo" onclick="sendCommand('CAPTURE_PROOF')">📸 Capture Proof</button>
+        <button class="activate" onclick="sendCommand('RUN_SEQUENCE')">🔄 Run Full Sequence</button>
+        
+        <h3>Transaction Log:</h3>
+        <div class="log" id="log">Waiting for commands...</div>
+    </div>
+
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <script>
+        const contractAddress = "0xd9145CCE52D386f254917e481eB44e9943F39138";
+        const abi = [
+            "function setCommand(string memory newCommand) public",
+            "function latestCommand() public view returns (string)",
+            "function submitProof(string memory newProofHash) public",
+            "function getStatus() public view returns (string, string)"
+        ];
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function sendCommand(cmd) {
+            try {
+                document.getElementById('status').textContent = 'Sending...';
+                
+                if (typeof window.ethereum === 'undefined') {
+                    alert('Please install MetaMask to use this interface');
+                    return;
+                }
+
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                const signer = provider.getSigner();
+                const contract = new ethers.Contract(contractAddress, abi, signer);
+                
+                log(`Sending command: ${cmd}`);
+                const tx = await contract.setCommand(cmd);
+                log(`Transaction sent: ${tx.hash}`);
+                
+                await tx.wait();
+                log(`✅ Command confirmed on blockchain`);
+                document.getElementById('status').textContent = 'Command Sent';
+                
+                setTimeout(() => {
+                    document.getElementById('status').textContent = 'Ready';
+                }, 3000);
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`);
+                document.getElementById('status').textContent = 'Error';
+            }
+        }
+
+        // Auto-refresh status
+        setInterval(async () => {
+            try {
+                if (typeof window.ethereum !== 'undefined') {
+                    const provider = new ethers.providers.Web3Provider(window.ethereum);
+                    const contract = new ethers.Contract(contractAddress, abi, provider);
+                    const [command, proof] = await contract.getStatus();
+                    
+                    if (command) {
+                        log(`Current command: ${command}`);
+                    }
+                }
+            } catch (e) {
+                // Silent fail for status updates
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

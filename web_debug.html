@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Polka-RA Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        button { padding: 15px 30px; margin: 10px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; background: #4CAF50; color: white; }
+        #status { margin: 20px 0; padding: 15px; background: #e7e7e7; border-radius: 5px; }
+        .debug { background: #333; color: #0f0; padding: 10px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>🔧 MetaMask Debug</h1>
+    
+    <div id="status">Checking MetaMask...</div>
+    <div class="debug" id="debug"></div>
+    
+    <button onclick="checkMetaMask()">Check MetaMask</button>
+    <button onclick="sendCommand('TEST_PUMP')">Send Test Command</button>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script>
+        function log(msg) {
+            document.getElementById('debug').innerHTML += msg + '<br>';
+            console.log(msg);
+        }
+
+        function checkMetaMask() {
+            log('=== METAMASK DEBUG ===');
+            log('window.ethereum exists: ' + (typeof window.ethereum !== 'undefined'));
+            log('ethers exists: ' + (typeof ethers !== 'undefined'));
+            
+            if (window.ethereum) {
+                log('MetaMask detected!');
+                log('Chain ID: ' + window.ethereum.chainId);
+                log('Selected address: ' + window.ethereum.selectedAddress);
+            } else {
+                log('MetaMask NOT detected');
+                log('Available objects: ' + Object.keys(window).filter(k => k.includes('eth')));
+            }
+        }
+
+        async function sendCommand(cmd) {
+            try {
+                log('=== SENDING COMMAND ===');
+                document.getElementById('status').innerHTML = 'Sending ' + cmd + '...';
+                
+                if (typeof window.ethereum === 'undefined') {
+                    log('ERROR: window.ethereum is undefined');
+                    document.getElementById('status').innerHTML = '❌ MetaMask not detected';
+                    return;
+                }
+
+                log('Creating provider...');
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                
+                log('Requesting accounts...');
+                await provider.send("eth_requestAccounts", []);
+                
+                log('Getting signer...');
+                const signer = provider.getSigner();
+                const address = await signer.getAddress();
+                log('Connected address: ' + address);
+                
+                document.getElementById('status').innerHTML = '✅ Connected: ' + address;
+                
+            } catch (error) {
+                log('ERROR: ' + error.message);
+                document.getElementById('status').innerHTML = '❌ Error: ' + error.message;
+            }
+        }
+
+        // Auto-check on load
+        window.onload = function() {
+            setTimeout(checkMetaMask, 1000);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Polka-RA Control</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        button { padding: 15px 30px; margin: 10px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; background: #4CAF50; color: white; }
+        button:hover { background: #45a049; }
+        button:disabled { background: #cccccc; cursor: not-allowed; }
+        #status { margin: 20px 0; padding: 15px; background: #e7e7e7; border-radius: 5px; }
+        .network-info { background: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Polka-RA Control Panel</h1>
+        
+        <div class="network-info">
+            <strong>⚠️ Required Network:</strong> Moonbase Alpha Testnet<br>
+            <small>Chain ID: 1287 | RPC: https://rpc.api.moonbase.moonbeam.network</small>
+        </div>
+        
+        <div id="status">Click Connect MetaMask first</div>
+        
+        <button onclick="connectMetaMask()">🦊 Connect MetaMask</button>
+        <button onclick="addMoonbaseNetwork()">🌙 Add Moonbase Network</button>
+        <br>
+        <button onclick="sendCommand('ACTIVATE_PUMP')" id="pumpBtn" disabled>💧 Water Pump</button>
+        <button onclick="sendCommand('ACTIVATE_LAMP')" id="lampBtn" disabled>💡 Lamp</button>
+        <button onclick="sendCommand('ACTIVATE_SERVO')" id="servoBtn" disabled>🔧 Servo</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script>
+        let provider = null;
+        let signer = null;
+        const MOONBASE_CHAIN_ID = '0x507'; // 1287 in hex
+        const CONTRACT_ADDRESS = "0x6e2ec30DD6093f247023019e408E226a345e5769";
+
+        async function addMoonbaseNetwork() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: MOONBASE_CHAIN_ID,
+                        chainName: 'Moonbase Alpha',
+                        nativeCurrency: {
+                            name: 'DEV',
+                            symbol: 'DEV',
+                            decimals: 18
+                        },
+                        rpcUrls: ['https://rpc.api.moonbase.moonbeam.network'],
+                        blockExplorerUrls: ['https://moonbase.moonscan.io/']
+                    }]
+                });
+                document.getElementById('status').innerHTML = '✅ Moonbase Alpha network added!';
+            } catch (error) {
+                document.getElementById('status').innerHTML = '❌ Failed to add network: ' + error.message;
+            }
+        }
+
+        async function connectMetaMask() {
+            try {
+                if (!window.ethereum) {
+                    document.getElementById('status').innerHTML = '❌ Please install MetaMask and refresh page';
+                    return;
+                }
+                
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                
+                // Check if we're on the right network
+                const network = await provider.getNetwork();
+                if (network.chainId !== 1287) {
+                    document.getElementById('status').innerHTML = '⚠️ Please switch to Moonbase Alpha network (Chain ID: 1287)';
+                    return;
+                }
+                
+                signer = provider.getSigner();
+                const address = await signer.getAddress();
+                
+                // Enable buttons
+                document.getElementById('pumpBtn').disabled = false;
+                document.getElementById('lampBtn').disabled = false;
+                document.getElementById('servoBtn').disabled = false;
+                
+                document.getElementById('status').innerHTML = '✅ Connected to Moonbase Alpha: ' + address.substring(0,10) + '...';
+                
+            } catch (error) {
+                document.getElementById('status').innerHTML = '❌ Connection failed: ' + error.message;
+            }
+        }
+
+        async function sendCommand(cmd) {
+            if (!signer) {
+                document.getElementById('status').innerHTML = '❌ Connect MetaMask first';
+                return;
+            }
+
+            try {
+                // Check network again before sending
+                const network = await provider.getNetwork();
+                if (network.chainId !== 1287) {
+                    document.getElementById('status').innerHTML = '❌ Wrong network! Please switch to Moonbase Alpha';
+                    return;
+                }
+
+                const abi = ["function setCommand(string memory newCommand) public"];
+                const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+                
+                document.getElementById('status').innerHTML = '⏳ Sending ' + cmd + ' to ESP32...';
+                
+                // Estimate gas first
+                const gasEstimate = await contract.estimateGas.setCommand(cmd);
+                
+                const tx = await contract.setCommand(cmd, {
+                    gasLimit: gasEstimate.mul(120).div(100) // Add 20% buffer
+                });
+                
+                document.getElementById('status').innerHTML = '⏳ Transaction sent, waiting for confirmation...';
+                await tx.wait();
+                
+                document.getElementById('status').innerHTML = '✅ Command sent! ESP32 will execute in ~10 seconds. TX: ' + tx.hash.substring(0,10) + '...';
+                
+            } catch (error) {
+                console.error('Transaction error:', error);
+                document.getElementById('status').innerHTML = '❌ Error: ' + error.message;
+            }
+        }
+
+        // Auto-connect if already connected
+        window.addEventListener('load', async () => {
+            if (window.ethereum && window.ethereum.selectedAddress) {
+                connectMetaMask();
+            }
+        });
+
+        // Listen for network changes
+        if (window.ethereum) {
+            window.ethereum.on('chainChanged', (chainId) => {
+                window.location.reload();
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+127.0.0.1 - - [09/Nov/2025 16:22:20] "GET /web_force_metamask.html HTTP/1.1" 200 -
+127.0.0.1 - - [09/Nov/2025 16:22:22] code 404, message File not found
+127.0.0.1 - - [09/Nov/2025 16:22:22] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [09/Nov/2025 16:24:18] "GET /web_force_metamask.html HTTP/1.1" 200 -
+127.0.0.1 - - [09/Nov/2025 16:37:11] "GET /web_force_metamask.html HTTP/1.1" 200 -
+127.0.0.1 - - [09/Nov/2025 17:00:59] "GET /web_force_metamask.html HTTP/1.1" 304 -
+127.0.0.1 - - [09/Nov/2025 17:11:06] "GET /web_force_metamask.html HTTP/1.1" 304 -
+127.0.0.1 - - [09/Nov/2025 17:12:59] "GET /web_force_metamask.html HTTP/1.1" 304 -
+127.0.0.1 - - [09/Nov/2025 17:14:02] "GET /web_force_metamask.html HTTP/1.1" 200 -
+127.0.0.1 - - [09/Nov/2025 17:19:59] "GET /web_force_metamask.html HTTP/1.1" 200 -
+127.0.0.1 - - [09/Nov/2025 18:40:58] "GET /web_force_metamask.html HTTP/1.1" 304 -
+127.0.0.1 - - [09/Nov/2025 18:52:34] "GET /web_force_metamask.html HTTP/1.1" 200 -

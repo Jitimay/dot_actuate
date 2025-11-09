@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head><title>Simple Test</title></head>
+<body>
+    <h1>Simple Transaction Test</h1>
+    <button onclick="testTransaction()">Send Simple Transaction</button>
+    <div id="status"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script>
+        async function testTransaction() {
+            try {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                const signer = provider.getSigner();
+                
+                // Simple transaction with low gas
+                const tx = await signer.sendTransaction({
+                    to: "0x0000000000000000000000000000000000000000",
+                    value: ethers.utils.parseEther("0.001"),
+                    gasLimit: 21000,
+                    gasPrice: ethers.utils.parseUnits("1", "gwei")
+                });
+                
+                document.getElementById('status').innerHTML = '✅ Transaction sent: ' + tx.hash;
+                
+            } catch (error) {
+                document.getElementById('status').innerHTML = '❌ Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

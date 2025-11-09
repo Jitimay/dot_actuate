@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Polka-RA Control</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        button { padding: 15px 30px; margin: 10px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
+        .activate { background: #4CAF50; color: white; }
+        .stop { background: #f44336; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Polka-Resilient-Actuator Control</h1>
+    
+    <button class="activate" onclick="sendCommand('ACTIVATE_PUMP')">Activate Pump</button>
+    <button class="stop" onclick="sendCommand('STOP_PUMP')">Stop Pump</button>
+    
+    <div id="status"></div>
+
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <script>
+        const contractAddress = "0xd9145CCE52D386f254917e481eB44e9943F39138";
+        const abi = [
+            "function setCommand(string memory newCommand) public",
+            "function latestCommand() public view returns (string)"
+        ];
+
+        async function sendCommand(cmd) {
+            try {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                const signer = provider.getSigner();
+                const contract = new ethers.Contract(contractAddress, abi, signer);
+                
+                document.getElementById('status').innerHTML = 'Sending command...';
+                const tx = await contract.setCommand(cmd);
+                await tx.wait();
+                document.getElementById('status').innerHTML = 'Command sent: ' + cmd;
+                
+            } catch (error) {
+                document.getElementById('status').innerHTML = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
