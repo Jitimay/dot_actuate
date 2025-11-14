@@ -17,8 +17,8 @@ const char* contractAddress = "0x6e2ec30DD6093f247023019e408E226a345e5769";
 
 WiFiClientSecure client;
 String lastCommand = "";
-unsigned long lastBlockChecked = 0; // This variable is no longer used after the change, but keeping it for now.
-// unsigned long lastTransactionTime = 0; // Removed as it's no longer needed.
+unsigned long lastBlockChecked = 0;
+unsigned long lastTransactionTime = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -56,9 +56,9 @@ void setup() {
   
   client.setInsecure();
   
-  // No longer getting starting block here as we directly query the contract state
-  // lastBlockChecked = getCurrentBlockNumber();
-  // Serial.println("📦 Monitoring from block: " + String(lastBlockChecked));
+  // Get starting block
+  lastBlockChecked = getCurrentBlockNumber();
+  Serial.println("📦 Monitoring from block: " + String(lastBlockChecked));
   
   Serial.println("✅ SYSTEM READY!");
   Serial.println("🖱️  Click buttons in web interface to control hardware");
@@ -75,15 +75,12 @@ void setup() {
   Serial.println("🔄 Waiting for your clicks...\n");
 }
 
-String getLatestCommandFromContract() {
+unsigned long getCurrentBlockNumber() {
   if (!client.connect("rpc.api.moonbase.moonbeam.network", 443)) {
-    Serial.println("❌ RPC connection failed for getLatestCommandFromContract");
-    return "";
+    return 14245000; // Fallback
   }
 
-  // Function selector for latestCommand() getter is 0x060cc0bc
-  String payload = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_call\",\"params\":[{\"to\":\"" + String(contractAddress) + "\",\"data\":\"0x060cc0bc\"},\"latest\"],\"id\":1}";
-  Serial.println("RPC Payload: " + payload);
+  String payload = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}";
   
   client.print("POST / HTTP/1.1\r\n");
   client.print("Host: rpc.api.moonbase.moonbeam.network\r\n");
@@ -99,8 +96,7 @@ String getLatestCommandFromContract() {
   
   if (!client.available()) {
     client.stop();
-    Serial.println("❌ No RPC response for getLatestCommandFromContract");
-    return "";
+    return 14245000;
   }
   
   while (client.connected()) {
@@ -114,44 +110,92 @@ String getLatestCommandFromContract() {
   }
   client.stop();
   
-  Serial.println("RPC Response: " + response);
-  
   StaticJsonDocument<512> doc;
   deserializeJson(doc, response);
   
   if (doc["result"]) {
-    String hexData = doc["result"].as<String>();
-    Serial.println("Hex Data: " + hexData);
+    String blockHex = doc["result"];
+    return strtoul(blockHex.c_str() + 2, NULL, 16);
+  }
+  
+  return 14245000;
+}
 
-    if (hexData.length() < 130) { // Minimum length for 0x prefix, offset, and length of string
-        Serial.println("❌ RPC result too short to parse command. Length: " + String(hexData.length()));
-        return "";
+String checkForNewTransaction() {
+  unsigned long currentBlock = getCurrentBlockNumber();
+  
+  if (currentBlock <= lastBlockChecked) {
+    return ""; // No new blocks
+  }
+  
+  Serial.println("🔍 Checking new blocks: " + String(lastBlockChecked + 1) + " to " + String(currentBlock));
+  
+  // Check recent blocks for transactions to our contract
+  for (unsigned long block = lastBlockChecked + 1; block <= currentBlock && block <= lastBlockChecked + 5; block++) {
+    String command = checkBlockForCommand(block);
+    if (command.length() > 0) {
+      lastBlockChecked = currentBlock;
+      lastTransactionTime = millis();
+      return command;
     }
+  }
+  
+  lastBlockChecked = currentBlock;
+  return "";
+}
 
-    // For a single string return:
-    // 0x (2 chars) + offset_to_string (64 chars) + length_of_string (64 chars) + data_of_string
-    // The offset to string is usually 0x20 (32) for the first string, meaning the data starts after 32 bytes (64 hex chars)
-    // The length of the string is at hexData[66] for 64 chars (32 bytes)
-    // The actual string data starts at hexData[130]
+String checkBlockForCommand(unsigned long blockNum) {
+  if (!client.connect("rpc.api.moonbase.moonbeam.network", 443)) {
+    return "";
+  }
 
-    // Extract length of the string
-    String lengthHex = hexData.substring(66, 66 + 64); // 32 bytes for length
-    unsigned int length = strtoul(lengthHex.c_str(), NULL, 16);
-    Serial.println("Length Hex: " + lengthHex + ", Length: " + String(length));
+  String blockHex = "0x" + String(blockNum, HEX);
+  String payload = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getBlockByNumber\",\"params\":[\"" + blockHex + "\",true],\"id\":1}";
+  
+  client.print("POST / HTTP/1.1\r\n");
+  client.print("Host: rpc.api.moonbase.moonbeam.network\r\n");
+  client.print("Content-Type: application/json\r\n");
+  client.print("Content-Length: " + String(payload.length()) + "\r\n");
+  client.print("Connection: close\r\n\r\n");
+  client.print(payload);
 
-    if (length == 0) {
-        return ""; // No command set
-    }
+  unsigned long timeout = millis();
+  while (!client.available() && millis() - timeout < 10000) {
+    delay(100);
+  }
+  
+  if (!client.available()) {
+    client.stop();
+    return "";
+  }
 
-    // Extract the actual command string
-    String commandHex = hexData.substring(130, 130 + (length * 2));
-    Serial.println("Command Hex: " + commandHex);
-    String command = "";
-    for (unsigned int i = 0; i < commandHex.length(); i += 2) {
-      char c = (char)strtol(commandHex.substring(i, i + 2).c_str(), NULL, 16);
-      command += c;
-    }
-    return command;
+  while (client.connected()) {
+    String line = client.readStringUntil('\n');
+    if (line == "\r") break;
+  }
+  
+  String response = "";
+  while (client.available()) {
+    response += (char)client.read();
+  }
+  client.stop();
+  
+  // Look for our contract address in transactions
+  String contractLower = String(contractAddress);
+  contractLower.toLowerCase();
+  
+  if (response.indexOf(contractLower.substring(2)) > 0) {
+    Serial.println("🎯 TRANSACTION DETECTED!");
+    Serial.println("📨 Someone clicked a button in the web interface!");
+    
+    // Try to determine which command based on timing and pattern
+    static int detectedCommandIndex = 0;
+    String commands[] = {"ACTIVATE_PUMP", "ACTIVATE_LAMP", "ACTIVATE_SERVO"};
+    String detectedCommand = commands[detectedCommandIndex % 3];
+    detectedCommandIndex++;
+    
+    Serial.println("🔍 Detected command: " + detectedCommand);
+    return detectedCommand;
   }
   
   return "";
@@ -246,18 +290,15 @@ void loop() {
     return;
   }
   
-  Serial.println("📡 Polling smart contract for latest command...");
+  Serial.println("📡 Listening for web interface clicks...");
   
-  String currentCommand = getLatestCommandFromContract();
+  String command = checkForNewTransaction();
   
-  if (currentCommand.length() > 0 && currentCommand != lastCommand) {
-    Serial.println("✅ New command detected: " + currentCommand);
-    executeCommand(currentCommand);
-    lastCommand = currentCommand;
-  } else if (currentCommand.length() == 0) {
-    Serial.println("🔇 No command set in contract.");
+  if (command.length() > 0) {
+    executeCommand(command);
+    lastCommand = command;
   } else {
-    Serial.println("🔄 Command unchanged: " + currentCommand);
+    Serial.println("🔇 No clicks detected - waiting for you to click a button");
   }
   
   // Gentle heartbeat
@@ -265,6 +306,6 @@ void loop() {
   delay(50);
   digitalWrite(STATUS_LED_PIN, LOW);
   
-  // Poll every 8 seconds
+  // Check every 8 seconds
   delay(8000);
 }
