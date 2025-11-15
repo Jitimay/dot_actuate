@@ -247,7 +247,8 @@
         let signer = null;
         let polkadotApi = null;
         const MOONBASE_CHAIN_ID = '0x507'; // 1287 in hex
-        const CONTRACT_ADDRESS = "0x6e2ec30DD6093f247023019e408E226a345e5769";
+        const COMMAND_CONTRACT_ADDRESS = "0x6e2ec30DD6093f247023019e408E226a345e5769";
+        const IMAGEPROOF_CONTRACT_ADDRESS = "0xf8e81D47203A594245E36C48e151709F0C19fBe8";
 
         async function addMoonbaseNetwork() {
             try {
@@ -322,12 +323,6 @@
             }
 
             try {
-                // Verify Polkadot SDK connection
-                if (polkadotApi && polkadotApi.rpc) {
-                    const blockHash = await polkadotApi.rpc.chain.getBlockHash();
-                    console.log('📦 Polkadot SDK - Current block:', blockHash.toString());
-                }
-
                 // Check network again before sending
                 const network = await provider.getNetwork();
                 if (network.chainId !== 1287) {
@@ -336,7 +331,7 @@
                 }
 
                 const abi = ["function setCommand(string memory newCommand) public"];
-                const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+                const contract = new ethers.Contract(COMMAND_CONTRACT_ADDRESS, abi, signer);
                 
                 document.getElementById('status').innerHTML = '⏳ Sending ' + cmd + ' via Polkadot SDK...';
                 
@@ -376,20 +371,31 @@
         const ESP32_CAM_IP_ADDRESS = "http://192.168.169.1:81";
 
         function capturePhoto() {
-            console.log('Capture button clicked');
             document.getElementById('cameraStatus').innerHTML = '📸 Capturing photo...';
             
-            // Test if capture URL works by opening in new tab
-            window.open(`${ESP32_CAM_IP_ADDRESS}/capture`, '_blank');
-            
-            // Also try to load in image
+            // First capture the image
             const img = document.getElementById('stillImage');
-            img.src = `${ESP32_CAM_IP_ADDRESS}/capture?${Date.now()}`;
+            img.onload = function() {
+                document.getElementById('cameraStatus').innerHTML = '🔐 Generating hash...';
+                
+                // Then get the hash
+                fetch(`${ESP32_CAM_IP_ADDRESS}/hash`)
+                    .then(response => response.text())
+                    .then(hash => {
+                        document.getElementById('cameraStatus').innerHTML = `✅ Photo captured!<br>🔐 Hash: ${hash.substring(0,20)}...`;
+                        console.log('Image hash:', hash);
+                    })
+                    .catch(error => {
+                        document.getElementById('cameraStatus').innerHTML = '✅ Photo captured (hash failed)';
+                        console.error('Hash error:', error);
+                    });
+            };
             
-            // Force success after 2 seconds
-            setTimeout(() => {
-                document.getElementById('cameraStatus').innerHTML = '✅ Check new tab for photo';
-            }, 2000);
+            img.onerror = function() {
+                document.getElementById('cameraStatus').innerHTML = '❌ Capture failed';
+            };
+            
+            img.src = `${ESP32_CAM_IP_ADDRESS}/capture?${Date.now()}`;
         }
 
         function updateStillImage() {
