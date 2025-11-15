@@ -224,7 +224,7 @@
             <h2>📸 Live Camera Feed & Control</h2>
             <div class="camera-live-feed">
                 <h3>🔴 Live Stream</h3>
-                <img id="cameraFeed" class="camera-feed" src="http://<YOUR_ESP32_CAM_IP_ADDRESS>/stream" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNhbWVyYSBPZmZsaW5lPC90ZXh0Pjwvc3ZnPg==';" alt="ESP32-CAM Live Stream">
+                <img id="cameraFeed" class="camera-feed" src="http://192.168.169.1:81/stream" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNhbWVyYSBPZmZsaW5lPC90ZXh0Pjwvc3ZnPg==';" alt="ESP32-CAM Live Stream">
                 <p class="camera-status">📡 Ensure ESP32-CAM is powered and connected to WiFi</p>
             </div>
             <div class="camera-controls">
@@ -373,29 +373,28 @@
         }
 
         // --- ESP32-CAM Integration ---
-        const ESP32_CAM_IP_ADDRESS = "http://<YOUR_ESP32_CAM_IP_ADDRESS>"; // !!! IMPORTANT: REPLACE WITH YOUR ESP32-CAM'S ACTUAL IP ADDRESS !!!
+        const ESP32_CAM_IP_ADDRESS = "http://192.168.169.1:81";
 
-        async function capturePhoto() {
+        function capturePhoto() {
+            console.log('Capture button clicked');
             document.getElementById('cameraStatus').innerHTML = '📸 Capturing photo...';
-            try {
-                const response = await fetch(`${ESP32_CAM_IP_ADDRESS}/capture`);
-                if (response.ok) {
-                    document.getElementById('cameraStatus').innerHTML = '✅ Photo captured!';
-                    // Give the camera a moment to save the image, then update
-                    setTimeout(updateStillImage, 1000); 
-                } else {
-                    document.getElementById('cameraStatus').innerHTML = '❌ Failed to capture photo.';
-                }
-            } catch (error) {
-                document.getElementById('cameraStatus').innerHTML = '❌ Error capturing photo: ' + error.message;
-                console.error('Error capturing photo:', error);
-            }
+            
+            // Test if capture URL works by opening in new tab
+            window.open(`${ESP32_CAM_IP_ADDRESS}/capture`, '_blank');
+            
+            // Also try to load in image
+            const img = document.getElementById('stillImage');
+            img.src = `${ESP32_CAM_IP_ADDRESS}/capture?${Date.now()}`;
+            
+            // Force success after 2 seconds
+            setTimeout(() => {
+                document.getElementById('cameraStatus').innerHTML = '✅ Check new tab for photo';
+            }, 2000);
         }
 
         function updateStillImage() {
             const stillImgElement = document.getElementById('stillImage');
-            // Append a timestamp to bypass browser caching
-            stillImgElement.src = `${ESP32_CAM_IP_ADDRESS}/still.jpg?_t=${new Date().getTime()}`;
+            stillImgElement.src = `${ESP32_CAM_IP_ADDRESS}/capture?_t=${new Date().getTime()}`;
         }
 
         // Initial update for the still image when page loads
