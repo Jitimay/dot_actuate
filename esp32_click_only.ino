@@ -217,53 +217,54 @@ void executeCommand(String command) {
   if (command.indexOf("PUMP") >= 0) {
     Serial.println("\n💧 === WATER PUMP ACTIVATION ===");
     Serial.println("🌊 You clicked the Water Pump button!");
-    Serial.println("💦 Pump motor: ON");
+    Serial.println("💦 Pump relay: ON");
     
-    digitalWrite(PUMP_PIN, HIGH);
+    digitalWrite(PUMP_PIN, HIGH);  // Activate pump relay
     
-    for (int i = 1; i <= 4; i++) {
+    for (int i = 1; i <= 5; i++) {
       delay(1000);
-      Serial.println("💧 Irrigation progress: " + String(i * 25) + "%");
+      Serial.println("💧 Pumping water: " + String(i * 20) + "%");
     }
     
-    digitalWrite(PUMP_PIN, LOW);
-    Serial.println("💦 Pump motor: OFF");
+    digitalWrite(PUMP_PIN, LOW);   // Deactivate pump relay
+    Serial.println("💦 Pump relay: OFF");
     Serial.println("✅ Water pump cycle complete!");
   }
   else if (command.indexOf("LAMP") >= 0) {
-    Serial.println("\n💡 === GROW LAMP ACTIVATION ===");
-    Serial.println("🌱 You clicked the Lamp button!");
-    Serial.println("💡 LED array: ON");
+    Serial.println("\n🔧 === MOTOR ACTIVATION ===");
+    Serial.println("⚙️  You clicked the Motor button!");
+    Serial.println("🔧 Motor relay: ON");
     
-    digitalWrite(LAMP_PIN, HIGH);
+    digitalWrite(LAMP_PIN, HIGH);  // Activate motor relay (using LAMP_PIN)
     
-    for (int i = 1; i <= 6; i++) {
+    for (int i = 1; i <= 3; i++) {
       delay(1000);
-      Serial.println("🌞 Light therapy progress: " + String(i * 16) + "%");
+      Serial.println("🔧 Motor running: " + String(i * 33) + "%");
     }
     
-    digitalWrite(LAMP_PIN, LOW);
-    Serial.println("💡 LED array: OFF");
-    Serial.println("✅ Grow lamp cycle complete!");
+    digitalWrite(LAMP_PIN, LOW);   // Deactivate motor relay
+    Serial.println("🔧 Motor relay: OFF");
+    Serial.println("✅ Motor cycle complete!");
   }
   else if (command.indexOf("SERVO") >= 0) {
-    Serial.println("\n🔧 === SERVO ACTUATOR SEQUENCE ===");
+    Serial.println("\n🤖 === SERVO ACTUATOR SEQUENCE ===");
     Serial.println("🤖 You clicked the Servo button!");
     Serial.println("⚙️  Servo motor: ACTIVE");
     
-    for (int i = 0; i < 20; i++) {
-      digitalWrite(SERVO_PIN, HIGH);
-      delay(100);
-      digitalWrite(SERVO_PIN, LOW);
-      delay(100);
-      
-      if (i % 4 == 0) {
-        Serial.println("🔧 Adjustment progress: " + String((i + 1) * 5) + "%");
+    // Generate PWM signal for servo (0-180 degrees)
+    for (int pos = 0; pos <= 180; pos += 10) {
+      // Simple PWM for servo control
+      for (int i = 0; i < 10; i++) {
+        digitalWrite(SERVO_PIN, HIGH);
+        delayMicroseconds(500 + (pos * 10)); // 0.5-2.5ms pulse width
+        digitalWrite(SERVO_PIN, LOW);
+        delay(20);
       }
+      Serial.println("🔧 Servo position: " + String(pos) + "°");
     }
     
     Serial.println("⚙️  Servo motor: IDLE");
-    Serial.println("✅ Servo adjustment complete!");
+    Serial.println("✅ Servo movement complete!");
   }
   
   Serial.println("\n🎉 === CLICK RESPONSE COMPLETE ===");
